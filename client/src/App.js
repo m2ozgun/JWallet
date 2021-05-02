@@ -29,10 +29,11 @@ class App extends Component {
       window.web3 = this.web3;
 
       let allowedBalance = await this.instance.methods.allowance(this.accounts[0]).call()
-      let balance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.accounts[0]), 'ether')
-      console.log(balance)
+      let addressBalance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.accounts[0]), 'ether')
+      let contractBalance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.instance.options.address), 'ether')
+
       const isOwner = await this.isOwner()
-      this.setState({ loaded: true, account: this.accounts[0], isOwner, allowedBalance, balance });
+      this.setState({ loaded: true, account: this.accounts[0], isOwner, allowedBalance, addressBalance, contractBalance });
 
     } catch (error) {
       // Catch any errors for any of the above operations.
@@ -47,6 +48,22 @@ class App extends Component {
     const owner = await this.instance.methods.owner().call();
     return this.accounts[0] === owner
   }
+
+  withdrawMoney = async (address, amount) => {
+    console.log('withdrawing money')
+    let result = await this.instance.methods.withdraw(address, amount).send({ from: this.state.account })
+
+    let allowedBalance = await this.instance.methods.allowance(this.accounts[0]).call()
+    let addressBalance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.accounts[0]), 'ether')
+    let contractBalance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.instance.options.address), 'ether')
+
+      this.setState({ allowedBalance, addressBalance, contractBalance }, this.updateUserTokens);
+
+    console.log(result)
+  }
+
+
+
 
   render() {
     if (!this.state.loaded) {
@@ -63,7 +80,10 @@ class App extends Component {
               allowedBalance={this.state.allowedBalance} 
               role='owner' 
               account={this.state.account}
-              balance={this.state.balance} 
+              addressBalance={this.state.addressBalance} 
+              contractBalance={this.state.contractBalance} 
+              contractAddress={this.instance.options.address}
+              withdrawMoney={this.withdrawMoney}
 
               />
             </main>
