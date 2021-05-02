@@ -21,14 +21,23 @@ contract('JWallet', async accounts => {
     })
 
     it('wallet balance should start with 0', async () => {
-        let balance = await web3.eth.getBalance(walletInstance.address)
         expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(new BN(0))
     })
     
-    it('balance should increase after deposit', async () => {
-        await web3.eth.sendTransaction({ from: accounts[0], to: walletInstance.address, value: 1})
-        expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(new BN(1))
+    it('should be able to withdraw', async () => {
+        await web3.eth.sendTransaction({ from: accounts[0], to: walletInstance.address, value: web3.utils.toWei(new BN(1), "ether")})
+        expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(web3.utils.toWei(new BN(1), "ether"))
+
+        // authorized access
+        await walletInstance.withdraw(accounts[1], web3.utils.toWei(new BN(0.5), "ether"))
+        expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(web3.utils.toWei(new BN(0.5), "ether"))
+
+        // unauthorized access reject
+        expect(walletInstance.withdraw(accounts[1], web3.utils.toWei(new BN(0.5), "ether"), {from : accounts[1]})).to.eventually.be.rejected
 
     })
+
+
+
 
 })
