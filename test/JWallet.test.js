@@ -14,27 +14,41 @@ chai.use(chaiAsPromised);
 const expect = chai.expect;
 
 contract('JWallet', async accounts => {
-    let walletInstance;
+    let walletInstance, owner, recipient;
 
     beforeEach(async () => {
         walletInstance = await JWallet.new()
+        owner = accounts[0]
+        recipient = accounts[1]
     })
 
     it('wallet balance should start with 0', async () => {
-        expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(new BN(0))
+        return await expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(new BN(0))
     })
+
+
+    it('wallet balance should increase after deposit', async () => {
+        await web3.eth.sendTransaction({ from: owner, to: walletInstance.address, value: new BN(1000)})
+        return await expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(new BN(1000))
+    })
+
     
-    it('should be able to withdraw', async () => {
-        await web3.eth.sendTransaction({ from: accounts[0], to: walletInstance.address, value: web3.utils.toWei(new BN(1), "ether")})
-        expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(web3.utils.toWei(new BN(1), "ether"))
+    it('owner should be able to withdraw', async () => {
+        await web3.eth.sendTransaction({ from: owner, to: walletInstance.address, value: new BN(1000)})
+        await walletInstance.withdraw(recipient, new BN(1000))
+        return await expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(new BN(0))
 
-        // authorized access
-        await walletInstance.withdraw(accounts[1], web3.utils.toWei(new BN(0.5), "ether"))
-        expect(web3.eth.getBalance(walletInstance.address)).to.eventually.be.a.bignumber.equal(web3.utils.toWei(new BN(0.5), "ether"))
+    })
 
-        // unauthorized access reject
-        expect(walletInstance.withdraw(accounts[1], web3.utils.toWei(new BN(0.5), "ether"), {from : accounts[1]})).to.eventually.be.rejected
+    it('recipient should  be able to withdraw if sufficient funds', async () => {
+        await web3.eth.sendTransaction({ from: owner, to: walletInstance.address, value: new BN(1000)})
+        await walletInstance.setAllowance(recipient, 1000)
+        return await expect(walletInstance.withdraw(recipient, new BN(100), {from : recipient})).to.eventually.be.fulfilled
+    })
 
+    it('recipient should not be able to withdraw if insufficient funds', async () => {
+        await web3.eth.sendTransaction({ from: owner, to: walletInstance.address, value: new BN(1000)})
+        return await expect(walletInstance.withdraw(recipient, new BN(100), {from : recipient})).to.eventually.be.rejectedWith(/not have sufficient funds/)
     })
 
 
