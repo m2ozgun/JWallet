@@ -28,12 +28,13 @@ class App extends Component {
       
       window.web3 = this.web3;
 
-      let allowedBalance = await this.instance.methods.allowance(this.accounts[0]).call()
+      let allowedBalance = this.web3.utils.fromWei(await this.instance.methods.allowance(this.accounts[0]).call(), 'ether')
       let addressBalance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.accounts[0]), 'ether')
       let contractBalance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.instance.options.address), 'ether')
 
       const isOwner = await this.isOwner()
-      this.setState({ loaded: true, account: this.accounts[0], isOwner, allowedBalance, addressBalance, contractBalance });
+      const owner = await this.instance.methods.owner().call();
+      this.setState({ loaded: true, account: this.accounts[0], isOwner, allowedBalance, addressBalance, contractBalance, owner });
 
     } catch (error) {
       // Catch any errors for any of the above operations.
@@ -51,18 +52,30 @@ class App extends Component {
 
   withdrawMoney = async (address, amount) => {
     console.log('withdrawing money')
-    let result = await this.instance.methods.withdraw(address, amount).send({ from: this.state.account })
+    try {
+      await this.instance.methods.withdraw(address, amount).send({ from: this.state.account })
+    } catch (err) {
+      return `Account has insufficient funds`
 
-    let allowedBalance = await this.instance.methods.allowance(this.accounts[0]).call()
+    }
+    
+
+    let allowedBalance = this.web3.utils.fromWei(await this.instance.methods.allowance(this.accounts[0]).call(), 'ether')
     let addressBalance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.accounts[0]), 'ether')
     let contractBalance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.instance.options.address), 'ether')
 
-      this.setState({ allowedBalance, addressBalance, contractBalance }, this.updateUserTokens);
-
-    console.log(result)
+    this.setState({ allowedBalance, addressBalance, contractBalance }, this.updateUserTokens);
+    return `Withdrawal for ${address} is successful. Amount: ${this.web3.utils.fromWei(amount, 'ether')} ETH`
   }
 
 
+
+  setAllowance = async (address, amount) => {
+    console.log('withdrawing money')
+    let result = await this.instance.methods.setAllowance(address, amount).send({ from: this.state.account })
+
+    return `Allowance for ${address} is set to ${this.web3.utils.fromWei(amount, 'ether')} ETH`
+  }
 
 
   render() {
@@ -74,16 +87,18 @@ class App extends Component {
         
         <Nav account={this.state.account} />
         <div className="row">
+
             <main role="main" className="col-lg-12 ml-auto mr-auto" style={{ maxWidth: '600px' }}>
               {/* {this.state.isOwner ? (<Main role='owner'/>) : (<Main role='client'/>) }            */}
               <Main 
-              allowedBalance={this.state.allowedBalance} 
-              role='owner' 
+              role={this.state.isOwner ? 'owner' : 'client'} 
               account={this.state.account}
               addressBalance={this.state.addressBalance} 
               contractBalance={this.state.contractBalance} 
+              allowedBalance={this.state.allowedBalance} 
               contractAddress={this.instance.options.address}
               withdrawMoney={this.withdrawMoney}
+              setAllowance={this.setAllowance}
 
               />
             </main>
