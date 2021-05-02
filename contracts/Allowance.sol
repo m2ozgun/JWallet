@@ -4,7 +4,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Allowance is Ownable {
     event AllowanceEvent(address indexed _of, address indexed _by, uint _prevAmount, uint _newAmount);
-    mapping(address => uint256) allowance;
+    mapping(address => uint256) public allowance;
 
     function isOwner() internal view returns (bool) {
         return owner() == msg.sender;

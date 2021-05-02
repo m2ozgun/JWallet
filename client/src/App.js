@@ -1,31 +1,39 @@
 import React, { Component } from "react";
-import SimpleStorageContract from "./contracts/SimpleStorage.json";
+import JWalletContract from "./contracts/JWallet.json";
 import getWeb3 from "./getWeb3";
+
+import Nav from './components/Nav'
+import Main from './components/Main'
 
 import "./App.css";
 
 class App extends Component {
-  state = { storageValue: 0, web3: null, accounts: null, contract: null };
+  state = { loaded: false };
 
   componentDidMount = async () => {
     try {
       // Get network provider and web3 instance.
-      const web3 = await getWeb3();
+      this.web3 = await getWeb3();
 
       // Use web3 to get the user's accounts.
-      const accounts = await web3.eth.getAccounts();
-
+      this.accounts = await this.web3.eth.getAccounts();
+      
       // Get the contract instance.
-      const networkId = await web3.eth.net.getId();
-      const deployedNetwork = SimpleStorageContract.networks[networkId];
-      const instance = new web3.eth.Contract(
-        SimpleStorageContract.abi,
-        deployedNetwork && deployedNetwork.address,
+      this.networkId = await this.web3.eth.net.getId();
+      this.deployedNetwork = JWalletContract.networks[this.networkId];
+      this.instance = new this.web3.eth.Contract(
+        JWalletContract.abi,
+        this.deployedNetwork && this.deployedNetwork.address,
       );
+      
+      window.web3 = this.web3;
 
-      // Set web3, accounts, and contract to the state, and then proceed with an
-      // example of interacting with the contract's methods.
-      this.setState({ web3, accounts, contract: instance }, this.runExample);
+      let allowedBalance = await this.instance.methods.allowance(this.accounts[0]).call()
+      let balance  = this.web3.utils.fromWei(await window.web3.eth.getBalance(this.accounts[0]), 'ether')
+      console.log(balance)
+      const isOwner = await this.isOwner()
+      this.setState({ loaded: true, account: this.accounts[0], isOwner, allowedBalance, balance });
+
     } catch (error) {
       // Catch any errors for any of the above operations.
       alert(
@@ -35,36 +43,32 @@ class App extends Component {
     }
   };
 
-  runExample = async () => {
-    const { accounts, contract } = this.state;
-
-    // Stores a given value, 5 by default.
-    await contract.methods.set(5).send({ from: accounts[0] });
-
-    // Get the value from the contract to prove it worked.
-    const response = await contract.methods.get().call();
-
-    // Update state with the result.
-    this.setState({ storageValue: response });
-  };
+  isOwner = async () => {
+    const owner = await this.instance.methods.owner().call();
+    return this.accounts[0] === owner
+  }
 
   render() {
-    if (!this.state.web3) {
+    if (!this.state.loaded) {
       return <div>Loading Web3, accounts, and contract...</div>;
     }
     return (
       <div className="App">
-        <h1>Good to Go!</h1>
-        <p>Your Truffle Box is installed and ready.</p>
-        <h2>Smart Contract Example</h2>
-        <p>
-          If your contracts compiled and migrated successfully, below will show
-          a stored value of 5 (by default).
-        </p>
-        <p>
-          Try changing the value stored on <strong>line 40</strong> of App.js.
-        </p>
-        <div>The stored value is: {this.state.storageValue}</div>
+        
+        <Nav account={this.state.account} />
+        <div className="row">
+            <main role="main" className="col-lg-12 ml-auto mr-auto" style={{ maxWidth: '600px' }}>
+              {/* {this.state.isOwner ? (<Main role='owner'/>) : (<Main role='client'/>) }            */}
+              <Main 
+              allowedBalance={this.state.allowedBalance} 
+              role='owner' 
+              account={this.state.account}
+              balance={this.state.balance} 
+
+              />
+            </main>
+            
+          </div>
       </div>
     );
   }
